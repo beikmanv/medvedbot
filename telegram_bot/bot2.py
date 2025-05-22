@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from collections import defaultdict
 import random
 import asyncio
+import re
+
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -84,6 +86,7 @@ async def generate_gpt_reply(chat_id: int, user_message: str, username: str) -> 
 
     if polite_mode:
         system_prompt = (
+            "Каждый ответ должен завершаться полностью, с точкой или другой знаковой концовкой. Никогда не обрывай последнюю фразу."
             "Иногда отвечай кратко и резко, а иногда развёрнуто, философски и глубоко. Не всегда одинаково."
             "Начинай каждое сообщение со слова Дмитрий. Жди 10 секунд, прежде чем ответить."
             "Ты — Никола Питерский, мудрец, дух из Санкт-Петербурга."
@@ -96,6 +99,7 @@ async def generate_gpt_reply(chat_id: int, user_message: str, username: str) -> 
         )
     else:
         system_prompt = (
+            "Каждый ответ должен завершаться полностью, с точкой или другой знаковой концовкой. Никогда не обрывай последнюю фразу."
             "Иногда отвечай кратко и резко, а иногда развёрнуто, философски и глубоко. Не всегда одинаково."
             "Начинай каждое сообщение со слова Дмитрий. Жди 10 секунд, прежде чем ответить."
             "Ты — Никола Питерский, бывший зэк и фэйковый духовный учитель, гопник с познаниями в буддизме. Ты втирал ртуть и все отсюда вытекающие."
@@ -126,7 +130,7 @@ async def generate_gpt_reply(chat_id: int, user_message: str, username: str) -> 
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages,
-            max_tokens=random.randint(200, 300),
+            max_tokens=random.randint(100, 250),
             temperature=1.0,
         )
         print("✅ GPT-ответ успешно получен")
@@ -134,6 +138,21 @@ async def generate_gpt_reply(chat_id: int, user_message: str, username: str) -> 
     except Exception as e:
         print(f"⚠️ GPT-ошибка: {type(e).__name__}: {e}")
         return random.choice(FALLBACK_PHRASES), False
+
+def truncate_to_last_sentence(text: str) -> str:
+    """
+    Возвращает текст, обрезанный до последнего завершённого предложения.
+    Завершённым считается предложение, заканчивающееся на . ! ? … либо их вариации с кавычками/скобками.
+    Если таких нет — возвращает оригинальный текст.
+    """
+    # Регулярка ищет завершённые предложения
+    sentences = re.findall(r'[^.!?…]+[.!?…]+(?:["»”’)\]]*)', text, re.UNICODE)
+
+    if not sentences:
+        # Если не нашлось ни одного завершённого предложения, возвращаем оригинал или добавляем троеточие
+        return text.strip() + "..."
+
+    return ''.join(sentences).strip()
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -205,7 +224,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, que
     if is_bot_sender:
         bot_to_bot_message_count[chat_id] += 1
         print(f"🔢 bot_to_bot_message_count[{chat_id}] = {bot_to_bot_message_count[chat_id]}")
-        if bot_to_bot_message_count[chat_id] > 2:
+        if bot_to_bot_message_count[chat_id] > 1:
             print(f"🛑 Диалог между ботами завершён в чате {chat_id}, начинаем обратный отсчёт")
             asyncio.create_task(reset_bot_counter(chat_id, delay=30))
             return
@@ -222,6 +241,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, que
             else:
                 print("🧠 Генерация GPT")
                 reply_text, from_gpt = await generate_gpt_reply(chat_id, message, user_name)
+                reply_text = truncate_to_last_sentence(reply_text)
                 print("✅ От GPT" if from_gpt else "⚠️ Это была легендарная фраза")
         except Exception as e:
             print(f"⚠️ Ошибка при обработке: {e}")

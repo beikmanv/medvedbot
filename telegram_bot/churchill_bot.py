@@ -62,7 +62,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, que
 
     if username in ("StalinHistoryBot", "ChurchillHistoryBot"):
         bot_to_bot_message_count[chat_id] += 1
-        if bot_to_bot_message_count[chat_id] > 3:
+        if bot_to_bot_message_count[chat_id] > 2:
             asyncio.create_task(reset_bot_counter(chat_id))
             return
 
