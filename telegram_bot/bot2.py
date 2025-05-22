@@ -241,8 +241,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE, que
             else:
                 print("🧠 Генерация GPT")
                 reply_text, from_gpt = await generate_gpt_reply(chat_id, message, user_name)
-                reply_text = truncate_to_last_sentence(reply_text)
-                print("✅ От GPT" if from_gpt else "⚠️ Это была легендарная фраза")
+                if from_gpt:
+                    reply_text = truncate_to_last_sentence(reply_text)
+                    print("✅ От GPT" if from_gpt else "⚠️ Это была легендарная фраза")
         except Exception as e:
             print(f"⚠️ Ошибка при обработке: {e}")
             reply_text = random.choice(FALLBACK_PHRASES)
